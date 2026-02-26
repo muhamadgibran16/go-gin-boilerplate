@@ -14,6 +14,7 @@ Go boilerplate project using [Gin](https://github.com/gin-gonic/gin) framework w
 - **Database**: PostgreSQL with GORM ORM (Auto-migration).
 - **Architecture**: Clean Architecture (Handler, Service, Repository, Model).
 - **DevOps**: Integrated Docker & Docker Compose.
+- **Rate Limiting**: Global rate limiting (100 req/min/IP) to prevent abuse.
 
 ## Tech Stack
 

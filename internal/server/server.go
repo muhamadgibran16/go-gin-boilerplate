@@ -41,6 +41,7 @@ func New(cfg *config.Config, logger *zap.Logger, db *gorm.DB) *Server {
 
 	// Global middleware
 	engine.Use(middleware.RequestID())
+	engine.Use(middleware.RateLimiter())
 	engine.Use(middleware.Recovery(logger))
 	engine.Use(middleware.Logger(logger))
 	engine.Use(middleware.CORS())
