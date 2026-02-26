@@ -86,13 +86,23 @@ go run cmd/api/main.go
 
 | Method | Endpoint               | Description            |
 | ------ | ---------------------- | ---------------------- |
+| GET    | `/swagger/*any`        | API Documentation UI   |
 | GET    | `/api/v1/users`        | List users (paginated) |
 | GET    | `/api/v1/users/:id`    | Get user detail        |
 | PUT    | `/api/v1/users/:id`    | Update user            |
 | DELETE | `/api/v1/users/:id`    | Delete user            |
 | POST   | `/api/v1/users/logout` | Logout                 |
 
+## Generating Documentation
+
+If you add new endpoints or change existing ones, update the Swagger docs:
+
+```bash
+make swag
+```
+
 ## Environment Variables
 
 See the [.env.example](.env.example) file for the full list of required environment variables (DB, JWT, App Settings).
+
 # go-gin-boilerplate

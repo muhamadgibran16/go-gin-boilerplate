@@ -3,7 +3,7 @@ BINARY_NAME=go-gin-boilerplate
 BINARY_PATH=./bin/$(BINARY_NAME)
 MAIN_PATH=./cmd/api/main.go
 
-.PHONY: all run build test tidy clean help
+.PHONY: all run build test tidy clean help swag
 
 all: build
 
@@ -27,6 +27,10 @@ test-cover:
 ## tidy: Tidy go modules
 tidy:
 	$(GO_BIN) mod tidy
+
+## swag: Generate swagger documentation
+swag:
+	$(GO_BIN) run github.com/swaggo/swag/cmd/swag init -g $(MAIN_PATH)
 
 ## vet: Run go vet
 vet:

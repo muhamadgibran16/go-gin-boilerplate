@@ -9,6 +9,10 @@ import (
 	"github.com/gibran/go-gin-boilerplate/internal/middleware"
 	"github.com/gibran/go-gin-boilerplate/internal/model"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "github.com/gibran/go-gin-boilerplate/docs"
 )
 
 // Handlers holds all the route handlers
@@ -30,6 +34,9 @@ func Setup(r *gin.Engine, handlers *Handlers, jwtSecret string) {
 
 	// Health check route (no version prefix)
 	r.GET("/health", handlers.Health.Check)
+
+	// Swagger route
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// API v1 routes
 	v1 := r.Group("/api/v1")

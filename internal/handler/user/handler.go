@@ -23,6 +23,18 @@ type UserQuery struct {
 }
 
 // GetMany handles GET /users
+// @Summary List users
+// @Description Get a paginated list of users (Admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number (default 1)"
+// @Param perPage query int false "Items per page (default 10)"
+// @Success 200 {object} response.PaginatedResponse{data=[]model.User}
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /users [get]
 func (h *Handler) GetMany(c *gin.Context) {
 	var query UserQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
@@ -48,6 +60,18 @@ func (h *Handler) GetMany(c *gin.Context) {
 }
 
 // GetOne handles GET /users/:id
+// @Summary Get user by ID
+// @Description Get detailed information about a specific user (Admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User UUID"
+// @Success 200 {object} response.Response{data=model.User}
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /users/{id} [get]
 func (h *Handler) GetOne(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -65,6 +89,19 @@ func (h *Handler) GetOne(c *gin.Context) {
 }
 
 // Update handles PUT /users/:id
+// @Summary Update user
+// @Description Update user name or role (Admin only)
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User UUID"
+// @Param request body service.UpdateUserRequest true "Update details"
+// @Success 200 {object} response.Response{data=model.User}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /users/{id} [put]
 func (h *Handler) Update(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -88,6 +125,17 @@ func (h *Handler) Update(c *gin.Context) {
 }
 
 // Delete handles DELETE /users/:id
+// @Summary Delete user
+// @Description Soft delete a user by ID (Admin only)
+// @Tags users
+// @Produce json
+// @Param id path string true "User UUID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /users/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
