@@ -7,6 +7,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	RoleAdmin = "admin"
+	RoleUser  = "user"
+)
+
 // User represents the user entity in the database
 type User struct {
 	ID        uuid.UUID      `gorm:"type:uuid;primary_key;" json:"id"`

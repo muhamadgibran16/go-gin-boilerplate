@@ -7,6 +7,7 @@ import (
 	healthHandler "github.com/gibran/go-gin-boilerplate/internal/handler/health"
 	userHandler "github.com/gibran/go-gin-boilerplate/internal/handler/user"
 	"github.com/gibran/go-gin-boilerplate/internal/middleware"
+	"github.com/gibran/go-gin-boilerplate/internal/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -48,10 +49,17 @@ func Setup(r *gin.Engine, handlers *Handlers, jwtSecret string) {
 		users := v1.Group("/users")
 		users.Use(middleware.Auth(jwtSecret))
 		{
-			users.GET("", middleware.ValidateQueryParams([]string{"page", "perPage"}), handlers.User.GetMany)
-			users.GET("/:id", handlers.User.GetOne)
-			users.PUT("/:id", handlers.User.Update)
-			users.DELETE("/:id", handlers.User.Delete)
+			// Admin only routes
+			admin := users.Group("")
+			admin.Use(middleware.RolesAllowed(model.RoleAdmin))
+			{
+				admin.GET("", middleware.ValidateQueryParams([]string{"page", "perPage"}), handlers.User.GetMany)
+				admin.GET("/:id", handlers.User.GetOne)
+				admin.PUT("/:id", handlers.User.Update)
+				admin.DELETE("/:id", handlers.User.Delete)
+			}
+			
+			// General protected routes
 			users.POST("/logout", handlers.Auth.Logout)
 		}
 	}
