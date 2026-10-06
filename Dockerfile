@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -10,22 +10,27 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/server ./cmd/api/main.go
+# Build binaries: the API server and the migration CLI
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/server ./cmd/api \
+    && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/migrate ./cmd/migrate
 
 # Final Stage
-FROM alpine:3.19
+FROM alpine:3.22
 
 WORKDIR /app
 
 # Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata \
+    && adduser -D -H -u 10001 app
 
-# Copy binary from builder
-COPY --from=builder /bin/server .
+# Copy binaries from builder
+COPY --from=builder /bin/server /bin/migrate ./
 
-# Copy env example as default
-COPY .env.example .env
+# Configuration (including JWT_SECRET) must be provided at runtime via environment
+# variables, never baked into the image.
+# Migrations are embedded in ./migrate and run explicitly, e.g. `./migrate up`.
+
+USER app
 
 EXPOSE 8080
 
