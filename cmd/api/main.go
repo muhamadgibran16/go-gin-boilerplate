@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 
-	"github.com/gibran/go-gin-boilerplate/config"
-	"github.com/gibran/go-gin-boilerplate/database"
-	"github.com/gibran/go-gin-boilerplate/internal/server"
+	"github.com/gibran/go-gin-boilerplate/internal/app"
+	"github.com/gibran/go-gin-boilerplate/internal/config"
+	"github.com/gibran/go-gin-boilerplate/internal/database"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 // @title           Go Gin Boilerplate API
@@ -37,7 +39,7 @@ func main() {
 	var logger *zap.Logger
 	var err error
 
-	if cfg.AppEnv == "production" {
+	if cfg.IsProduction() {
 		logger, err = zap.NewProduction()
 	} else {
 		logger, err = zap.NewDevelopment()
@@ -50,7 +52,32 @@ func main() {
 	// Connect to database
 	db := database.Connect(cfg)
 
+	// Migrations are not applied automatically, only reported
+	warnPendingMigrations(db, logger)
+
 	// Create and run server
-	srv := server.New(cfg, logger, db)
+	srv := app.New(cfg, logger, db)
 	srv.Run()
+}
+
+// warnPendingMigrations logs a warning when the database schema is behind the embedded migrations
+func warnPendingMigrations(db *gorm.DB, logger *zap.Logger) {
+	migrator, err := database.NewMigrator(db)
+	if err != nil {
+		logger.Warn("Could not check database migrations", zap.Error(err))
+		return
+	}
+
+	current, target, err := migrator.GetVersions(context.Background())
+	if err != nil {
+		logger.Warn("Could not check database migrations", zap.Error(err))
+		return
+	}
+
+	if current < target {
+		logger.Warn("Database has pending migrations, run `make db:migrate`",
+			zap.Int64("current_version", current),
+			zap.Int64("latest_version", target),
+		)
+	}
 }

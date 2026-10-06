@@ -1,5 +1,24 @@
 basePath: /api/v1
 definitions:
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.LoginResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+      user:
+        $ref: '#/definitions/user.UserResponse'
+    type: object
   auth.RefreshRequest:
     properties:
       refreshToken:
@@ -7,22 +26,29 @@ definitions:
     required:
     - refreshToken
     type: object
-  model.User:
+  auth.RefreshResponse:
     properties:
-      createdAt:
-        type: string
-      email:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      role:
-        type: string
-      updatedAt:
+      accessToken:
         type: string
     type: object
-  response.ErrorResponse:
+  auth.RegisterRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        type: string
+      password:
+        description: Length rules (at least 6 characters, at most 72 bytes) are checked
+          by the service
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  httpx.ErrorResponse:
     properties:
       errors: {}
       message:
@@ -30,7 +56,25 @@ definitions:
       status:
         type: string
     type: object
-  response.Meta:
+  httpx.PaginatedResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/pagination.Meta'
+      status:
+        type: string
+    type: object
+  httpx.Response:
+    properties:
+      data: {}
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  pagination.Meta:
     properties:
       currentPage:
         type: integer
@@ -43,66 +87,31 @@ definitions:
       totalPage:
         type: integer
     type: object
-  response.PaginatedResponse:
-    properties:
-      data: {}
-      message:
-        type: string
-      meta:
-        $ref: '#/definitions/response.Meta'
-      status:
-        type: string
-    type: object
-  response.Response:
-    properties:
-      data: {}
-      message:
-        type: string
-      status:
-        type: string
-    type: object
-  service.AuthResponse:
-    properties:
-      accessToken:
-        type: string
-      refreshToken:
-        type: string
-      user:
-        $ref: '#/definitions/model.User'
-    type: object
-  service.LoginRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-    required:
-    - email
-    - password
-    type: object
-  service.RegisterRequest:
-    properties:
-      email:
-        type: string
-      name:
-        type: string
-      password:
-        minLength: 6
-        type: string
-    required:
-    - email
-    - name
-    - password
-    type: object
-  service.UpdateUserRequest:
+  user.UpdateRequest:
     properties:
       name:
-        minLength: 3
+        description: The minimum length is checked by the service after trimming spaces
+        maxLength: 255
         type: string
       role:
         enum:
         - admin
         - user
+        type: string
+    type: object
+  user.UserResponse:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      updatedAt:
         type: string
     type: object
 host: localhost:8080
@@ -123,14 +132,16 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticate user and return access & refresh tokens
+      description: |-
+        Authenticate user and return access & refresh tokens.
+        After 5 failed attempts on an email within 15 minutes, logins to it are refused (429) until the window ends.
       parameters:
       - description: Login credentials
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/service.LoginRequest'
+          $ref: '#/definitions/auth.LoginRequest'
       produces:
       - application/json
       responses:
@@ -138,15 +149,24 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/httpx.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/service.AuthResponse'
+                  $ref: '#/definitions/auth.LoginResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "429":
+          description: Too many requests from this IP, or too many failed logins for
+            this email
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
       summary: Login user
       tags:
       - auth
@@ -159,7 +179,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/httpx.Response'
       security:
       - BearerAuth: []
       summary: Logout user
@@ -184,17 +204,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/httpx.Response'
             - properties:
                 data:
-                  additionalProperties:
-                    type: string
-                  type: object
+                  $ref: '#/definitions/auth.RefreshResponse'
               type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
       summary: Refresh access token
       tags:
       - auth
@@ -209,7 +227,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/service.RegisterRequest'
+          $ref: '#/definitions/auth.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -217,33 +235,55 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/httpx.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.User'
+                  $ref: '#/definitions/user.UserResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
       summary: Register a new user
       tags:
       - auth
   /health:
     get:
-      description: Returns the health status of the server
+      description: Returns 200 while the process is running. Does not check dependencies.
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
-      summary: Health check
+            $ref: '#/definitions/httpx.Response'
+      summary: Liveness check
+      tags:
+      - health
+  /health/ready:
+    get:
+      description: Returns 200 when the server can reach its dependencies (database),
+        503 otherwise.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpx.Response'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Readiness check
       tags:
       - health
   /users:
@@ -256,10 +296,19 @@ paths:
         in: query
         name: page
         type: integer
-      - description: Items per page (default 10)
+      - description: Items per page (default 10, max 100)
         in: query
         name: perPage
         type: integer
+      - description: 'Comma-separated fields, ''-'' for descending. Fields: name,
+          email, role, createdAt, updatedAt (default -createdAt)'
+        in: query
+        name: sort
+        type: string
+      - description: Case-insensitive search in name and email
+        in: query
+        name: search
+        type: string
       produces:
       - application/json
       responses:
@@ -267,21 +316,25 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.PaginatedResponse'
+            - $ref: '#/definitions/httpx.PaginatedResponse'
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.User'
+                    $ref: '#/definitions/user.UserResponse'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
       security:
       - BearerAuth: []
       summary: List users
@@ -289,7 +342,8 @@ paths:
       - users
   /users/{id}:
     delete:
-      description: Soft delete a user by ID (Admin only)
+      description: Soft delete a user by ID (Admin only). Admins cannot delete their
+        own account.
       parameters:
       - description: User UUID
         in: path
@@ -302,19 +356,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/httpx.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Delete user
@@ -337,23 +395,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/httpx.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.User'
+                  $ref: '#/definitions/user.UserResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get user by ID
@@ -362,7 +424,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update user name or role (Admin only)
+      description: Update user name or role (Admin only). Admins cannot change their
+        own role.
       parameters:
       - description: User UUID
         in: path
@@ -374,7 +437,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/service.UpdateUserRequest'
+          $ref: '#/definitions/user.UpdateRequest'
       produces:
       - application/json
       responses:
@@ -382,23 +445,27 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/httpx.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.User'
+                  $ref: '#/definitions/user.UserResponse'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/response.ErrorResponse'
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update user
