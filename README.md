@@ -31,8 +31,7 @@ with JWT authentication, role-based access, versioned migrations and secure defa
 - **Database**: PostgreSQL with GORM and versioned SQL migrations ([goose](https://github.com/pressly/goose)),
   run explicitly with Prisma-like `make db:*` commands, never on startup.
 - **Developer experience**: one JSON format for every response, validation messages using JSON field names,
-  colored request logs in the terminal, request-scoped logs with `request_id` / `user_id`, Swagger docs,
-  tests and Docker.
+  request-scoped logs with `request_id` / `user_id`, Swagger docs, tests and Docker.
 
 ## Quick start
 
@@ -194,8 +193,7 @@ go-gin-boilerplate/
 │   │   ├── pagination/             # page/perPage binding, pagination.Find[T], response meta
 │   │   ├── ratelimit/              # Failure counter (failed logins per email)
 │   │   ├── search/                 # Case-insensitive search over several columns
-│   │   ├── sorting/                # Safe ?sort=-createdAt,name with a field whitelist
-│   │   └── termcolor/              # Whether ANSI colors may be written (terminal, NO_COLOR)
+│   │   └── sorting/                # Safe ?sort=-createdAt,name with a field whitelist
 │   └── modules/
 │       ├── modules.go              # Models() registry used by `make db:push`
 │       ├── auth/                   # Register, login, refresh, JWT, passwords, auth middleware, RequireRoles
@@ -237,7 +235,7 @@ Rules for `internal/pkg`:
 3. Wire the repository, service and handler in `internal/app/app.go`, and add the routes in `internal/app/routes.go`.
 4. Create the table: `make db:create name=create_<name>_table`, write the SQL, then `make db:migrate`.
 5. Add Swagger annotations to the handlers and run `make swag`.
-6. Write service tests with a fake repository (see `internal/modules/user/service_test.go`).
+6. Write service tests with a fake repository (see [Testing](#testing)).
 
 ### Handlers and errors
 
@@ -333,16 +331,8 @@ err := s.tx.WithinTx(ctx, func(ctx context.Context) error { // s.tx is a *databa
 
 ### Logging
 
-With `LOG_FORMAT=pretty` (the default in development), each request is printed as one line, with colored
-status and method when the output is a terminal:
-
-```
-2026-10-06 15:43:50 | 200 |      2.329ms |       127.0.0.1 | GET      /api/v1/users?page=1&perPage=5  req=7955b5b2-...
-2026-10-06 15:43:50 | 400 |        356µs |       127.0.0.1 | PUT      /api/v1/users/b4ba...  req=c97e5215-...  error=Validation failed
-```
-
-Colors are turned off when the output is not a terminal (file, log collector) or when `NO_COLOR` is set.
-With `LOG_FORMAT=json` (the default in production), logs are structured JSON.
+Logs are human-readable in development and structured JSON in production (`APP_ENV=production`).
+Every request writes an access log entry with its `request_id`.
 
 `ctxlog.From(ctx)` returns a logger that already carries `request_id`, and `user_id` once authenticated,
 so logs written by services can be traced back to their request:
@@ -393,16 +383,22 @@ Notes:
 
 ```bash
 make test
-
-# Integration tests (transactions) only run against a real PostgreSQL database:
-TEST_DATABASE_DSN="host=localhost user=postgres password=postgres dbname=postgres sslmode=disable" \
-  go test ./internal/database/
 ```
 
-Tests live next to the code they cover. Services are unit-tested with in-memory fake repositories
-(`internal/modules/*/service_test.go`), and the shared layers have their own tests: auth middleware and JWT,
-HTTP error mapping and validation, pagination/sorting/search SQL, rate limiting. When adding a module,
-service tests are usually enough, since the shared layers are already covered.
+Tests live in the feature modules and cover the code with the most logic:
+
+| File                                        | Covers |
+| ------------------------------------------- | ------ |
+| `internal/modules/auth/service_test.go`     | Register, login, refresh, login lockout, password and name rules |
+| `internal/modules/auth/middleware_test.go`  | Bearer token checks (a refresh token is rejected), roles |
+| `internal/modules/user/service_test.go`     | Admin rules, update, delete |
+| `internal/modules/user/handler_test.go`     | HTTP status for each error, validation messages, pagination defaults, no internal error leaks |
+| `internal/modules/user/repository_test.go`  | SQL of the list query: sorting, search, pagination, stable order, count without `ORDER BY` |
+
+Services are tested with in-memory fake repositories, and the repository test builds SQL with GORM's dry-run
+mode, so no database is needed. Shared code in `internal/httpx` and `internal/pkg` is covered through these
+module tests. When adding a module, write service tests for its logic, and a handler test when it maps
+errors or validates input in a specific way.
 
 ## Configuration
 
@@ -410,7 +406,7 @@ Settings are read from environment variables, or from `.env` (see [.env.example]
 
 | Variable                   | Default                     | Description |
 | -------------------------- | --------------------------- | ----------- |
-| `APP_ENV`                  | `development`               | `production` enables stricter checks, JSON logs, and disables Swagger, `db:reset` and `db:push` |
+| `APP_ENV`                  | `development`               | `production` enables stricter checks and JSON logs, and disables Swagger, `db:reset` and `db:push` |
 | `APP_PORT`                 | `8080`                      | HTTP port |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE` | `localhost`, `5432`, `postgres`, `postgres`, `go_gin_boilerplate`, `disable` | PostgreSQL connection |
 | `JWT_SECRET`               | (insecure placeholder)      | Signing key. In production, at least 32 random characters (`openssl rand -hex 32`) or the app refuses to start |
@@ -419,7 +415,6 @@ Settings are read from environment variables, or from `.env` (see [.env.example]
 | `TRUSTED_PROXIES`          | (none)                      | Comma-separated proxy IPs/CIDRs allowed to set `X-Forwarded-For` |
 | `CORS_ALLOWED_ORIGINS`     | `*` in development, none in production | Comma-separated browser origins |
 | `SWAGGER_ENABLED`          | `true` outside production   | Expose `/swagger` |
-| `LOG_FORMAT`               | `pretty` in development, `json` in production | `pretty` (readable, colored in a terminal) or `json` |
 | `ADMIN_PASSWORD`           | -                           | Only for `make db:create-admin` in scripts/CI; otherwise the password is prompted |
 
 ## Deploying to production

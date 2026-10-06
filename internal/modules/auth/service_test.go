@@ -15,7 +15,10 @@ import (
 	"gorm.io/gorm"
 )
 
-const testMaxFailedLogins = 5
+const (
+	testSecret          = "test-secret-with-at-least-32-characters"
+	testMaxFailedLogins = 5
+)
 
 // fakeRepo is an in-memory UserRepository
 type fakeRepo struct {

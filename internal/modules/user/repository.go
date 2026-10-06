@@ -35,11 +35,20 @@ func NewRepository(db *gorm.DB) *Repository {
 
 // FindAll retrieves a page of users matching the search, in the requested order
 func (r *Repository) FindAll(ctx context.Context, q ListQuery) ([]User, int64, error) {
-	db, err := sorting.Apply(database.Conn(ctx, r.db), q.Sort, sortFields, "-createdAt")
+	db, err := r.listQuery(ctx, q)
 	if err != nil {
 		return nil, 0, err
 	}
-	return pagination.Find[User](db.Scopes(search.Scope(q.Search, searchColumns...)), q.Query)
+	return pagination.Find[User](db, q.Query)
+}
+
+// listQuery builds the filtered and ordered query of FindAll, before pagination
+func (r *Repository) listQuery(ctx context.Context, q ListQuery) (*gorm.DB, error) {
+	db, err := sorting.Apply(database.Conn(ctx, r.db), q.Sort, sortFields, "-createdAt")
+	if err != nil {
+		return nil, err
+	}
+	return db.Scopes(search.Scope(q.Search, searchColumns...)), nil
 }
 
 // FindByID retrieves a user by their UUID
