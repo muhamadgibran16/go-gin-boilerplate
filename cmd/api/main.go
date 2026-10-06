@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/gibran/go-gin-boilerplate/internal/app"
 	"github.com/gibran/go-gin-boilerplate/internal/config"
 	"github.com/gibran/go-gin-boilerplate/internal/database"
+	"github.com/gibran/go-gin-boilerplate/internal/pkg/termcolor"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 )
 
@@ -36,14 +39,7 @@ func main() {
 	cfg := config.Load()
 
 	// Initialize logger
-	var logger *zap.Logger
-	var err error
-
-	if cfg.IsProduction() {
-		logger, err = zap.NewProduction()
-	} else {
-		logger, err = zap.NewDevelopment()
-	}
+	logger, err := newLogger(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
@@ -80,4 +76,21 @@ func warnPendingMigrations(db *gorm.DB, logger *zap.Logger) {
 			zap.Int64("latest_version", target),
 		)
 	}
+}
+
+// newLogger returns a JSON logger for log collectors, or a readable console logger
+// (colored levels when writing to a terminal) when LOG_FORMAT=pretty
+func newLogger(cfg *config.Config) (*zap.Logger, error) {
+	if !cfg.PrettyLogs() {
+		return zap.NewProduction()
+	}
+
+	zc := zap.NewDevelopmentConfig()
+	zc.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05")
+	if termcolor.Enabled(os.Stderr) {
+		zc.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	}
+	// Stack traces only for errors; the development default (warnings too) is noisy
+	zc.DisableStacktrace = true
+	return zc.Build(zap.AddStacktrace(zapcore.ErrorLevel))
 }

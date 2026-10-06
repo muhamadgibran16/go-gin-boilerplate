@@ -17,6 +17,7 @@ import (
 	"github.com/gibran/go-gin-boilerplate/internal/modules/health"
 	"github.com/gibran/go-gin-boilerplate/internal/modules/user"
 	"github.com/gibran/go-gin-boilerplate/internal/pkg/ratelimit"
+	"github.com/gibran/go-gin-boilerplate/internal/pkg/termcolor"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -74,7 +75,11 @@ func New(cfg *config.Config, logger *zap.Logger, db *gorm.DB) *Server {
 	// rejected (429) requests are still logged and readable by browsers.
 	engine.Use(httpx.Recovery(logger))
 	engine.Use(httpx.RequestID())
-	engine.Use(httpx.Logger(logger))
+	engine.Use(httpx.Logger(logger, httpx.LoggerOptions{
+		Pretty: cfg.PrettyLogs(),
+		Color:  termcolor.Enabled(os.Stdout),
+		Out:    os.Stdout,
+	}))
 	engine.Use(httpx.ErrorHandler())
 	engine.Use(httpx.Timeout(requestTimeout))
 	engine.Use(httpx.Security())

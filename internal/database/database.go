@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gibran/go-gin-boilerplate/internal/config"
+	"github.com/gibran/go-gin-boilerplate/internal/pkg/termcolor"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/driver/postgres"
@@ -57,7 +58,7 @@ func Open(cfg *config.Config, dbName string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db.Logger = NewLogger(logLevel, !cfg.IsProduction())
+	db.Logger = NewLogger(logLevel, cfg.PrettyLogs() && termcolor.Enabled(os.Stdout))
 
 	sqlDB, err := db.DB()
 	if err != nil {

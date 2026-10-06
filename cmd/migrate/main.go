@@ -29,6 +29,7 @@ import (
 	"github.com/gibran/go-gin-boilerplate/internal/modules/user"
 	"github.com/gibran/go-gin-boilerplate/internal/pkg/apperror"
 	"github.com/gibran/go-gin-boilerplate/internal/pkg/ratelimit"
+	"github.com/gibran/go-gin-boilerplate/internal/pkg/termcolor"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/term"
 	"gorm.io/gorm"
@@ -91,7 +92,7 @@ func run(ctx context.Context, command string, args []string, force bool) error {
 		return err
 	}
 	// Keep CLI output readable: only log slow queries and errors, not every statement
-	db := conn.Session(&gorm.Session{Logger: database.NewLogger(logger.Warn, true)})
+	db := conn.Session(&gorm.Session{Logger: database.NewLogger(logger.Warn, termcolor.Enabled(os.Stdout))})
 	defer func() {
 		if sqlDB, err := db.DB(); err == nil {
 			sqlDB.Close()

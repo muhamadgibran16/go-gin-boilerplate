@@ -32,6 +32,10 @@ type Config struct {
 	// SwaggerEnabled exposes /swagger. Defaults to true outside production.
 	SwaggerEnabled bool
 
+	// LogFormat is "pretty" (colored, human readable) or "json" (for log collectors).
+	// Defaults to pretty in development and json in production.
+	LogFormat string
+
 	// Database
 	DBHost     string
 	DBPort     string
@@ -67,6 +71,7 @@ func Load() *Config {
 		TrustedProxies:     getEnvList("TRUSTED_PROXIES"),
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS"),
 		SwaggerEnabled:     getEnvBool("SWAGGER_ENABLED", appEnv != "production"),
+		LogFormat:          getEnv("LOG_FORMAT", defaultLogFormat(appEnv)),
 
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnv("DB_PORT", "5432"),
@@ -84,8 +89,30 @@ func Load() *Config {
 	return cfg
 }
 
+// Log formats
+const (
+	LogFormatPretty = "pretty"
+	LogFormatJSON   = "json"
+)
+
+func defaultLogFormat(appEnv string) string {
+	if appEnv == "production" {
+		return LogFormatJSON
+	}
+	return LogFormatPretty
+}
+
+// PrettyLogs reports whether logs are written for humans rather than log collectors
+func (c *Config) PrettyLogs() bool {
+	return c.LogFormat == LogFormatPretty
+}
+
 // validate stops the app on insecure configuration in production and warns otherwise
 func (c *Config) validate() {
+	if c.LogFormat != LogFormatPretty && c.LogFormat != LogFormatJSON {
+		log.Fatalf("LOG_FORMAT must be %q or %q, got %q", LogFormatPretty, LogFormatJSON, c.LogFormat)
+	}
+
 	weakSecret := c.JWTSecret == "" ||
 		strings.HasPrefix(c.JWTSecret, defaultJWTSecret) ||
 		len(c.JWTSecret) < minJWTSecretLength
