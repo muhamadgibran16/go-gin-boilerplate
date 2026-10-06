@@ -26,6 +26,10 @@ const (
 	// maxBodyBytes caps request bodies; larger requests get 413
 	maxBodyBytes = 1 << 20 // 1 MiB
 
+	// requestTimeout cancels slow requests (e.g. an unresponsive database) with a 503.
+	// It must stay below the server WriteTimeout (10s) so the error can still be written.
+	requestTimeout = 8 * time.Second
+
 	// Rate limits, per minute. Layered so that no single key can be abused:
 	// IP for flood protection, user ID for authenticated traffic, email for login brute force.
 	globalLimitPerIP   = 300 // every request; high enough for many users behind one IP
@@ -57,6 +61,8 @@ func New(cfg *config.Config, logger *zap.Logger, db *gorm.DB) *Server {
 	}
 
 	engine := gin.New()
+	// Answer a wrong method on a known route with 405 instead of 404
+	engine.HandleMethodNotAllowed = true
 
 	// Only trust X-Forwarded-For from configured proxies, otherwise clients could
 	// spoof their IP and bypass the rate limiter.
@@ -70,6 +76,7 @@ func New(cfg *config.Config, logger *zap.Logger, db *gorm.DB) *Server {
 	engine.Use(httpx.RequestID())
 	engine.Use(httpx.Logger(logger))
 	engine.Use(httpx.ErrorHandler())
+	engine.Use(httpx.Timeout(requestTimeout))
 	engine.Use(httpx.Security())
 	if origins := corsOrigins(cfg); len(origins) > 0 {
 		engine.Use(httpx.CORS(origins))

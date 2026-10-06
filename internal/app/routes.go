@@ -21,6 +21,10 @@ func registerRoutes(r *gin.Engine, cfg *config.Config, h handlers) {
 	// One shared limiter, so a user's quota covers all authenticated endpoints together
 	perUserLimit := httpx.RateLimiterPerUser(apiLimitPerUser, time.Minute)
 
+	// JSON errors for unknown routes and wrong methods (Gin answers in plain text by default)
+	r.NoRoute(httpx.NotFoundHandler)
+	r.NoMethod(httpx.MethodNotAllowedHandler)
+
 	// Default route
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

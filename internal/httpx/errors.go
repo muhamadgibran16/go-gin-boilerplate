@@ -1,6 +1,9 @@
 package httpx
 
 import (
+	"context"
+	"errors"
+
 	"github.com/gibran/go-gin-boilerplate/internal/pkg/apperror"
 	"github.com/gibran/go-gin-boilerplate/internal/pkg/ctxlog"
 	"github.com/gin-gonic/gin"
@@ -20,6 +23,8 @@ func Abort(c *gin.Context, err error) {
 	c.Abort()
 }
 
+var errRequestTimeout = apperror.Unavailable("Service temporarily unavailable, please try again")
+
 // ErrorHandler writes the JSON error response for errors recorded with Abort.
 // Internal errors are logged with the request logger and hidden from the client.
 func ErrorHandler() gin.HandlerFunc {
@@ -32,6 +37,11 @@ func ErrorHandler() gin.HandlerFunc {
 
 		err := c.Errors.Last().Err
 		appErr := apperror.From(err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			// The request ran out of time (see Timeout), typically a slow or unreachable database
+			ctxlog.From(c.Request.Context()).Error("request timed out", zap.Error(err))
+			appErr = errRequestTimeout
+		}
 
 		message := appErr.Message
 		if appErr.Kind == apperror.KindInternal {
