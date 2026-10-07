@@ -99,9 +99,14 @@ func bindError(err error, fallback string) error {
 		})
 	}
 
+	// strconv reports both number and boolean parse failures as *NumError; Func tells them apart
 	var numErr *strconv.NumError
 	if errors.As(err, &numErr) {
-		return apperror.BadRequest(fmt.Sprintf("%s: %q is not a valid number", fallback, numErr.Num)).Wrap(err)
+		kind := "number"
+		if numErr.Func == "ParseBool" {
+			kind = "boolean (use true or false)"
+		}
+		return apperror.BadRequest(fmt.Sprintf("%s: %q is not a valid %s", fallback, numErr.Num, kind)).Wrap(err)
 	}
 
 	var syntaxErr *json.SyntaxError
